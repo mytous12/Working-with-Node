@@ -16,18 +16,19 @@ exports.getToken = (payload) => {
     return jwt.sign(payload, config.secretKey, { expiresIn: 3600 });
 }
 
-var opts = {
-    jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-    secretOrKey: config.secretKey
-}
+var opts = {};
+opts.jwtFromRequest = ExtractJwt.fromAuthHeaderAsBearerToken();
+opts.secretOrKey = config.secretKey;
+opts.passReqToCallback = true;
 
 exports.jwtPassport = passport.use(new JwtStrategy(opts,
-    (jwt_payload, done) => {
+    (req, jwt_payload, done) => {
         console.log("JWT payload: ", jwt_payload);
         User.findOne({ _id: jwt_payload._id }, (err, user) => {
             if (err) {
                 return done(err, false);
             } else if (user) {
+                req.userId = user;
                 return done(null, true);
             } else {
                 return done(null, false);
@@ -36,3 +37,13 @@ exports.jwtPassport = passport.use(new JwtStrategy(opts,
     }));
 
 exports.verifyUser = passport.authenticate('jwt', { session: false });
+
+exports.verifyAdmin = (req, res, next) => {
+    if (req.userId.admin) {
+        next();
+    } else {
+        var err = new Error('You are not authorized to perform this operation!');
+        err.status = 403;
+        next(err);
+    }
+}
